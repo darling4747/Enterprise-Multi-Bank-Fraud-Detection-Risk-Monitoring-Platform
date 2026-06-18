@@ -1,0 +1,50 @@
+package com.bank.frauddetection.dto.transaction;
+
+import com.bank.frauddetection.enums.AccountType;
+import com.bank.frauddetection.enums.CustomerType;
+import com.bank.frauddetection.enums.DailyTransactionPattern;
+import com.bank.frauddetection.enums.FraudDecision;
+import com.bank.frauddetection.enums.RiskLevel;
+import com.bank.frauddetection.enums.TransactionStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+
+public record TransactionResponse(
+        Long id,
+        String reference,
+        String customerId,
+        String sourceAccount,
+        String destinationAccount,
+        BigDecimal amount,
+        String currency,
+        String channel,
+        String merchantCategory,
+        String country,
+        String ipAddress,
+        String deviceId,
+        AccountType accountType,
+        CustomerType customerType,
+        boolean beneficiaryTrusted,
+        boolean knownDevice,
+        boolean knownLocation,
+        Integer transactionHour,
+        DailyTransactionPattern dailyTransactionPattern,
+        String type,
+        Integer step,
+        BigDecimal oldbalanceOrg,
+        BigDecimal newbalanceOrig,
+        BigDecimal oldbalanceDest,
+        BigDecimal newbalanceDest,
+        Long bankId,
+        String bankCode,
+        Long branchId,
+        String branchCode,
+        TransactionStatus status,
+        RiskLevel riskLevel,
+        FraudDecision fraudDecision,
+        int riskScore,
+        String riskSummary,
+        Instant createdAt,
+        Instant processedAt
+) {
+}

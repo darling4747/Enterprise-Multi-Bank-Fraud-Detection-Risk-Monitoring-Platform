@@ -1,0 +1,11 @@
+package com.bank.frauddetection.enums;
+
+public enum SecurityIncidentType {
+    IMPOSSIBLE_TRAVEL,
+    MULTIPLE_MFA_FAILURES,
+    ACCOUNT_TAKEOVER_ATTEMPT,
+    PRIVILEGE_ESCALATION,
+    MULTIPLE_FAILED_LOGINS,
+    NEW_DEVICE_LOGIN,
+    ADMIN_PRIVILEGE_CHANGE
+}

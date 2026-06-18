@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bank-dark: #0f172a;
+  --color-bank-blue: #1e3a8a;
+  --color-bank-light: #f8fafc;
+  --color-bank-accent: #3b82f6;
+  --color-bank-success: #10b981;
+  --color-bank-warning: #f59e0b;
+  --color-bank-danger: #ef4444;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    margin: 0;
+  }
+}

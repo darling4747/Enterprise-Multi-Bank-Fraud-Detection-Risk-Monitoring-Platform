@@ -1,0 +1,86 @@
+{
+  "modelVersion": "2026-06-13T05:33:58.054527+00:00",
+  "featureImportance": [
+    {
+      "feature": "type_CASH_IN",
+      "importance": 0.38349097967147827,
+      "normalizedImportance": 0.38349094516149485
+    },
+    {
+      "feature": "newbalanceOrig",
+      "importance": 0.3098491430282593,
+      "normalizedImportance": 0.30984911514523367
+    },
+    {
+      "feature": "type_PAYMENT",
+      "importance": 0.15647606551647186,
+      "normalizedImportance": 0.15647605143534163
+    },
+    {
+      "feature": "oldbalanceOrg",
+      "importance": 0.05773989483714104,
+      "normalizedImportance": 0.05773988964118358
+    },
+    {
+      "feature": "amount",
+      "importance": 0.02825280837714672,
+      "normalizedImportance": 0.02825280583470374
+    },
+    {
+      "feature": "type_TRANSFER",
+      "importance": 0.024109069257974625,
+      "normalizedImportance": 0.024109067088422732
+    },
+    {
+      "feature": "newbalanceDest",
+      "importance": 0.0160971786826849,
+      "normalizedImportance": 0.01609717723411531
+    },
+    {
+      "feature": "type_CASH_OUT",
+      "importance": 0.015897313132882118,
+      "normalizedImportance": 0.01589731170229824
+    },
+    {
+      "feature": "oldbalanceDest",
+      "importance": 0.006483243312686682,
+      "normalizedImportance": 0.006483242729265868
+    },
+    {
+      "feature": "type_DEBIT",
+      "importance": 0.0016043941723182797,
+      "normalizedImportance": 0.0016043940279403953
+    }
+  ],
+  "predictions": [
+    {
+      "name": "individual_normal_transfer_1000",
+      "type": "TRANSFER",
+      "amount": 1000,
+      "fraudProbability": 8.673505362821743e-05,
+      "mlRiskScore": 0
+    },
+    {
+      "name": "individual_large_transfer_10000000_normal_balances",
+      "type": "TRANSFER",
+      "amount": 10000000,
+      "fraudProbability": 0.3276900053024292,
+      "mlRiskScore": 33
+    },
+    {
+      "name": "same_large_transfer_with_context_ignored_by_ml",
+      "type": "TRANSFER",
+      "amount": 10000000,
+      "fraudProbability": 0.3276900053024292,
+      "mlRiskScore": 33
+    },
+    {
+      "name": "large_transfer_balance_mismatch",
+      "type": "TRANSFER",
+      "amount": 10000000,
+      "fraudProbability": 0.4142729938030243,
+      "mlRiskScore": 41
+    }
+  ],
+  "interpretation": "ML returns probability only. Spring Boot applies account, beneficiary, device, location, and hour rules to calculate the final risk score."
+}

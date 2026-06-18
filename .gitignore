@@ -1,0 +1,39 @@
+# Dependencies
+**/node_modules/
+**/venv/
+**/.venv/
+
+# Build outputs
+**/target/
+**/dist/
+**/build/
+**/.vite/
+
+# Python caches
+**/__pycache__/
+**/*.py[cod]
+
+# Local environment and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs and runtime output
+logs/
+**/logs/
+**/*.log
+
+# Large local/raw datasets
+ml-service/training/Synthetic Financial Datasets.csv
+ml-service/training/raw/
+ml-service/training/*.zip
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

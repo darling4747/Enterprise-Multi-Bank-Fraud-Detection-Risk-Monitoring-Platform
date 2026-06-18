@@ -1,0 +1,120 @@
+{
+  "trained_at": "2026-06-13T05:33:58.054527+00:00",
+  "source_dataset": "C:\\Users\\HP Victus\\Music\\fraud detection system\\ml-service\\training\\Synthetic Financial Datasets.csv",
+  "cleaned_sample": "C:\\Users\\HP Victus\\Music\\fraud detection system\\ml-service\\training\\cleaned_transactions_sample.csv",
+  "features": [
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "type"
+  ],
+  "cleaning": {
+    "raw_rows": 6362620,
+    "dropped_missing_required": 0,
+    "dropped_non_finite_required": 0,
+    "dropped_invalid_required": 0,
+    "dropped_duplicates": 0,
+    "clean_rows": 6362620,
+    "fraud_rows": 8213,
+    "legitimate_rows": 6354407
+  },
+  "training": {
+    "rows": 258213,
+    "test_rows": 51643,
+    "max_legitimate_rows": 250000,
+    "random_state": 42,
+    "estimator": "xgboost.XGBClassifier"
+  },
+  "evaluation": {
+    "threshold": 0.9182668328285217,
+    "roc_auc": 0.9990170967741935,
+    "average_precision": 0.9918348399125708,
+    "confusion_matrix": {
+      "true_negative": 49919,
+      "false_positive": 81,
+      "false_negative": 30,
+      "true_positive": 1613
+    },
+    "classification_report": {
+      "0": {
+        "precision": 0.9993993873751226,
+        "recall": 0.99838,
+        "f1-score": 0.9988894336111417,
+        "support": 50000.0
+      },
+      "1": {
+        "precision": 0.9521841794569067,
+        "recall": 0.9817407181984176,
+        "f1-score": 0.9667365897512736,
+        "support": 1643.0
+      },
+      "accuracy": 0.9978506283523421,
+      "macro avg": {
+        "precision": 0.9757917834160146,
+        "recall": 0.9900603590992088,
+        "f1-score": 0.9828130116812077,
+        "support": 51643.0
+      },
+      "weighted avg": {
+        "precision": 0.9978972556900998,
+        "recall": 0.9978506283523421,
+        "f1-score": 0.9978665046089195,
+        "support": 51643.0
+      }
+    }
+  },
+  "feature_importance": [
+    {
+      "feature": "type_CASH_IN",
+      "importance": 0.38349097967147827,
+      "normalizedImportance": 0.38349094516149485
+    },
+    {
+      "feature": "newbalanceOrig",
+      "importance": 0.3098491430282593,
+      "normalizedImportance": 0.30984911514523367
+    },
+    {
+      "feature": "type_PAYMENT",
+      "importance": 0.15647606551647186,
+      "normalizedImportance": 0.15647605143534163
+    },
+    {
+      "feature": "oldbalanceOrg",
+      "importance": 0.05773989483714104,
+      "normalizedImportance": 0.05773988964118358
+    },
+    {
+      "feature": "amount",
+      "importance": 0.02825280837714672,
+      "normalizedImportance": 0.02825280583470374
+    },
+    {
+      "feature": "type_TRANSFER",
+      "importance": 0.024109069257974625,
+      "normalizedImportance": 0.024109067088422732
+    },
+    {
+      "feature": "newbalanceDest",
+      "importance": 0.0160971786826849,
+      "normalizedImportance": 0.01609717723411531
+    },
+    {
+      "feature": "type_CASH_OUT",
+      "importance": 0.015897313132882118,
+      "normalizedImportance": 0.01589731170229824
+    },
+    {
+      "feature": "oldbalanceDest",
+      "importance": 0.006483243312686682,
+      "normalizedImportance": 0.006483242729265868
+    },
+    {
+      "feature": "type_DEBIT",
+      "importance": 0.0016043941723182797,
+      "normalizedImportance": 0.0016043940279403953
+    }
+  ]
+}
