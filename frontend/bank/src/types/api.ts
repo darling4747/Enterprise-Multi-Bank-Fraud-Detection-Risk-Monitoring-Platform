@@ -34,6 +34,7 @@ export interface AuthResponse {
   mustChangePassword: boolean;
   mfaEnabled: boolean;
   mfaRequired: boolean;
+  sessionTimeoutMinutes: number;
 }
 
 export interface LoginRequest {

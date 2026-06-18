@@ -18,6 +18,7 @@ public record AuthResponse(
         Long bankId,
         boolean mustChangePassword,
         boolean mfaEnabled,
-        boolean mfaRequired
+        boolean mfaRequired,
+        int sessionTimeoutMinutes
 ) {
 }

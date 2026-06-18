@@ -44,13 +44,13 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public AuthResponse me(Principal principal) {
-        return authService.currentUser(principal.getName());
+    public AuthResponse me(Principal principal, HttpServletRequest request) {
+        return authService.currentUser(principal.getName(), currentSessionId(request));
     }
 
     @PostMapping("/change-password")
-    public AuthResponse changePassword(@Valid @RequestBody ChangePasswordRequest request, Principal principal) {
-        return authService.changePassword(principal.getName(), request);
+    public AuthResponse changePassword(@Valid @RequestBody ChangePasswordRequest request, Principal principal, HttpServletRequest httpRequest) {
+        return authService.changePassword(principal.getName(), request, currentSessionId(httpRequest));
     }
 
     @PostMapping("/mfa/setup")
@@ -59,13 +59,13 @@ public class AuthController {
     }
 
     @PostMapping("/mfa/verify")
-    public AuthResponse verifyMfaSetup(@Valid @RequestBody MfaVerifyRequest request, Principal principal) {
-        return authService.verifyMfaSetup(principal.getName(), request);
+    public AuthResponse verifyMfaSetup(@Valid @RequestBody MfaVerifyRequest request, Principal principal, HttpServletRequest httpRequest) {
+        return authService.verifyMfaSetup(principal.getName(), request, currentSessionId(httpRequest));
     }
 
     @PostMapping("/mfa/disable")
-    public AuthResponse disableMfa(@Valid @RequestBody MfaVerifyRequest request, Principal principal) {
-        return authService.disableMfa(principal.getName(), request);
+    public AuthResponse disableMfa(@Valid @RequestBody MfaVerifyRequest request, Principal principal, HttpServletRequest httpRequest) {
+        return authService.disableMfa(principal.getName(), request, currentSessionId(httpRequest));
     }
 
     @GetMapping("/sessions")

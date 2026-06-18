@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -25,7 +25,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { authService } from '../services/authService';
+import { SESSION_ACTIVITY_KEY, authService } from '../services/authService';
 import type { EnterpriseRoleType } from '../types/api';
 
 export function DashboardLayout() {
@@ -33,12 +33,55 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = authService.getStoredUser();
+  const userSessionId = user?.sessionId;
+  const userSessionTimeoutMinutes = user?.sessionTimeoutMinutes;
 
   const userRoles = user?.roles ?? [];
   const canSee = (roles?: EnterpriseRoleType[]) => !roles || userRoles.some((role) => roles.includes(role));
   const adminRoles: EnterpriseRoleType[] = ['PLATFORM_ADMIN', 'SUPER_ADMIN', 'BANK_ADMIN'];
   const readRoles: EnterpriseRoleType[] = ['PLATFORM_ADMIN', 'SUPER_ADMIN', 'BANK_ADMIN', 'BRANCH_MANAGER', 'FRAUD_ANALYST', 'RISK_OFFICER', 'AUDITOR'];
   const basePath = '/dashboard';
+
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      return undefined;
+    }
+
+    let lastActivityWrite = 0;
+    const markActive = () => {
+      const now = Date.now();
+      if (now - lastActivityWrite < 1000) {
+        return;
+      }
+      lastActivityWrite = now;
+      localStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+    };
+
+    if (!localStorage.getItem(SESSION_ACTIVITY_KEY)) {
+      markActive();
+    }
+
+    const activityEvents = ['click', 'keydown', 'mousedown', 'mousemove', 'scroll', 'touchstart'];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, markActive, { passive: true }));
+
+    const timer = window.setInterval(() => {
+      if (!authService.isAuthenticated()) {
+        return;
+      }
+      const storedUser = authService.getStoredUser();
+      const timeoutMinutes = storedUser?.sessionTimeoutMinutes || 30;
+      const lastActivityAt = Number(localStorage.getItem(SESSION_ACTIVITY_KEY) || Date.now());
+      if (Date.now() - lastActivityAt >= timeoutMinutes * 60 * 1000) {
+        authService.logout();
+        navigate('/login', { replace: true, state: { reason: 'session-timeout' } });
+      }
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, markActive));
+    };
+  }, [navigate, userSessionId, userSessionTimeoutMinutes]);
 
   const navItems = [
     { path: basePath, label: 'Overview', icon: LayoutDashboard, roles: readRoles },

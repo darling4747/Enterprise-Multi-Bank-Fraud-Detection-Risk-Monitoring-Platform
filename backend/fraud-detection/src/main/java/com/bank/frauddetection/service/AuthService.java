@@ -173,11 +173,11 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public AuthResponse currentUser(String username) {
+    public AuthResponse currentUser(String username, Long currentSessionId) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
-        return toAuthResponse(token, user);
+        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()), currentSessionId);
+        return toAuthResponse(token, user, false, null, currentSessionId);
     }
 
     @Transactional
@@ -222,7 +222,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyMfaSetup(String username, MfaVerifyRequest request) {
+    public AuthResponse verifyMfaSetup(String username, MfaVerifyRequest request, Long currentSessionId) {
         User user = findUser(username);
         if (isBlank(user.getMfaSecret())) {
             throw new BusinessException("Start MFA setup before verifying a code");
@@ -235,16 +235,16 @@ public class AuthService {
         user.setMfaEnabledAt(Instant.now());
         user = userRepository.save(user);
         auditService.log(AuditEventType.MFA_ENABLED, user, user, bankId(user), "MFA enabled", AuditStatus.SUCCESS);
-        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
-        return toAuthResponse(token, user);
+        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()), currentSessionId);
+        return toAuthResponse(token, user, false, null, currentSessionId);
     }
 
     @Transactional
-    public AuthResponse disableMfa(String username, MfaVerifyRequest request) {
+    public AuthResponse disableMfa(String username, MfaVerifyRequest request, Long currentSessionId) {
         User user = findUser(username);
         if (!user.isMfaEnabled()) {
-            String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
-            return toAuthResponse(token, user);
+            String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()), currentSessionId);
+            return toAuthResponse(token, user, false, null, currentSessionId);
         }
         if (!totpService.verify(user.getMfaSecret(), request.code())) {
             auditService.log(AuditEventType.MFA_CHALLENGE_FAILED, user, user, bankId(user), "MFA disable rejected: invalid code", AuditStatus.FAILURE);
@@ -255,8 +255,8 @@ public class AuthService {
         user.setMfaEnabledAt(null);
         user = userRepository.save(user);
         auditService.log(AuditEventType.MFA_DISABLED, user, user, bankId(user), "MFA disabled", AuditStatus.SUCCESS);
-        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
-        return toAuthResponse(token, user);
+        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()), currentSessionId);
+        return toAuthResponse(token, user, false, null, currentSessionId);
     }
 
     @Transactional(readOnly = true)
@@ -295,12 +295,13 @@ public class AuthService {
         user.setDailySummaryReport(request.dailySummaryReport());
         user.setSessionTimeoutMinutes(request.sessionTimeoutMinutes());
         user = userRepository.save(user);
-        auditService.log(AuditEventType.USER_UPDATED, user, user, bankId(user), "User updated notification preferences", AuditStatus.SUCCESS);
+        userSessionService.refreshTimeoutForUser(user);
+        auditService.log(AuditEventType.USER_UPDATED, user, user, bankId(user), "User updated notification and session preferences", AuditStatus.SUCCESS);
         return toPreferencesResponse(user);
     }
 
     @Transactional
-    public AuthResponse changePassword(String username, ChangePasswordRequest request) {
+    public AuthResponse changePassword(String username, ChangePasswordRequest request, Long currentSessionId) {
         User user = userRepository.findByUsername(username)
                 .or(() -> userRepository.findByEmail(username))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
@@ -321,8 +322,8 @@ public class AuthService {
         user = userRepository.save(user);
         passwordPolicyService.rememberPasswordHash(user, previousPasswordHash);
         auditService.log(AuditEventType.PASSWORD_CHANGED, user, user, bankId(user), "User changed password", AuditStatus.SUCCESS);
-        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()));
-        return toAuthResponse(token, user);
+        String token = jwtService.generateToken(userDetailsService.loadUserByUsername(user.getUsername()), currentSessionId);
+        return toAuthResponse(token, user, false, null, currentSessionId);
     }
 
     private Role findOrCreateRole(RoleType roleType) {
@@ -358,7 +359,8 @@ public class AuthService {
                 bankId(user),
                 user.isMustChangePassword(),
                 user.isMfaEnabled(),
-                mfaRequired
+                mfaRequired,
+                user.getSessionTimeoutMinutes()
         );
     }
 

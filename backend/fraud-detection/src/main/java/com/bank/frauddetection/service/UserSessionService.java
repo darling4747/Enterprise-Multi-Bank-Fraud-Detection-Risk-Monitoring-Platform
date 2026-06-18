@@ -33,6 +33,7 @@ public class UserSessionService {
 
     @Transactional
     public CreatedSession createSession(User user, String deviceId, String userAgent, String ipAddress) {
+        Instant now = Instant.now();
         String refreshToken = generateRefreshToken();
         UserSession session = new UserSession();
         session.setUser(user);
@@ -42,34 +43,77 @@ public class UserSessionService {
         session.setIpAddress(clean(ipAddress, 80));
         session.setBrowser(browser(userAgent));
         session.setOperatingSystem(operatingSystem(userAgent));
-        session.setLastSeenAt(Instant.now());
-        session.setExpiresAt(Instant.now().plusSeconds(refreshTtlSeconds));
+        session.setLastSeenAt(now);
+        session.setExpiresAt(effectiveExpiresAt(session, now));
         session = userSessionRepository.save(session);
         return new CreatedSession(session, refreshToken);
     }
 
     @Transactional
     public UserSession useRefreshToken(String refreshToken) {
-        UserSession session = userSessionRepository.findByRefreshTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash(refreshToken), Instant.now())
+        UserSession session = userSessionRepository.findByRefreshTokenHashAndRevokedAtIsNull(hash(refreshToken))
                 .orElseThrow(() -> new BusinessException("Refresh token is invalid or expired"));
-        session.setLastSeenAt(Instant.now());
+        Instant now = Instant.now();
+        if (!isActive(session, now)) {
+            session.setRevokedAt(now);
+            userSessionRepository.save(session);
+            throw new BusinessException("Session timed out. Please log in again.");
+        }
+        touch(session, now);
         return userSessionRepository.save(session);
+    }
+
+    @Transactional
+    public boolean validateAndTouchSession(Long sessionId, String username) {
+        if (sessionId == null || username == null || username.isBlank()) {
+            return false;
+        }
+        UserSession session = userSessionRepository.findByIdAndRevokedAtIsNull(sessionId).orElse(null);
+        if (session == null || !username.equals(session.getUser().getUsername())) {
+            return false;
+        }
+        Instant now = Instant.now();
+        if (!isActive(session, now)) {
+            session.setRevokedAt(now);
+            userSessionRepository.save(session);
+            return false;
+        }
+        touch(session, now);
+        userSessionRepository.save(session);
+        return true;
     }
 
     @Transactional(readOnly = true)
     public List<UserSessionResponse> listSessions(User user, Long currentSessionId) {
-        return userSessionRepository.findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByLastSeenAtDesc(user.getId(), Instant.now())
+        Instant now = Instant.now();
+        return userSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(user.getId())
                 .stream()
+                .filter(session -> isActive(session, now))
                 .map(session -> toResponse(session, currentSessionId))
                 .toList();
     }
 
     @Transactional
     public void revokeOtherSessions(User user, Long currentSessionId) {
-        userSessionRepository.findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByLastSeenAtDesc(user.getId(), Instant.now())
+        Instant now = Instant.now();
+        userSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(user.getId())
                 .stream()
+                .filter(session -> isActive(session, now))
                 .filter(session -> currentSessionId == null || !session.getId().equals(currentSessionId))
-                .forEach(session -> session.setRevokedAt(Instant.now()));
+                .forEach(session -> session.setRevokedAt(now));
+    }
+
+    @Transactional
+    public void refreshTimeoutForUser(User user) {
+        Instant now = Instant.now();
+        userSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(user.getId())
+                .forEach(session -> {
+                    if (isActive(session, now)) {
+                        session.setExpiresAt(effectiveExpiresAt(session, session.getLastSeenAt()));
+                    } else {
+                        session.setRevokedAt(now);
+                    }
+                });
     }
 
     private UserSessionResponse toResponse(UserSession session, Long currentSessionId) {
@@ -82,9 +126,24 @@ public class UserSessionService {
                 session.getUserAgent(),
                 session.getCreatedAt(),
                 session.getLastSeenAt(),
-                session.getExpiresAt(),
+                effectiveExpiresAt(session, session.getLastSeenAt()),
                 currentSessionId != null && currentSessionId.equals(session.getId())
         );
+    }
+
+    private boolean isActive(UserSession session, Instant now) {
+        return session.getRevokedAt() == null && effectiveExpiresAt(session, session.getLastSeenAt()).isAfter(now);
+    }
+
+    private void touch(UserSession session, Instant now) {
+        session.setLastSeenAt(now);
+        session.setExpiresAt(effectiveExpiresAt(session, now));
+    }
+
+    private Instant effectiveExpiresAt(UserSession session, Instant lastSeenAt) {
+        Instant absoluteRefreshExpiry = session.getCreatedAt().plusSeconds(refreshTtlSeconds);
+        Instant inactivityExpiry = lastSeenAt.plusSeconds((long) session.getUser().getSessionTimeoutMinutes() * 60);
+        return absoluteRefreshExpiry.isBefore(inactivityExpiry) ? absoluteRefreshExpiry : inactivityExpiry;
     }
 
     private String generateRefreshToken() {

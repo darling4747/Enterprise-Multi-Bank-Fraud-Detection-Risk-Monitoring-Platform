@@ -7,7 +7,9 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserSessionRepository extends JpaRepository<UserSession, Long> {
-    Optional<UserSession> findByRefreshTokenHashAndRevokedAtIsNullAndExpiresAtAfter(String refreshTokenHash, Instant now);
+    Optional<UserSession> findByRefreshTokenHashAndRevokedAtIsNull(String refreshTokenHash);
 
-    List<UserSession> findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByLastSeenAtDesc(Long userId, Instant now);
+    Optional<UserSession> findByIdAndRevokedAtIsNull(Long id);
+
+    List<UserSession> findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(Long userId);
 }

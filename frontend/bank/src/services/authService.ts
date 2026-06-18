@@ -12,6 +12,8 @@ import type {
   UserSessionResponse,
 } from '../types/api';
 
+export const SESSION_ACTIVITY_KEY = 'securebank_last_activity_at';
+
 const persistSession = (session: AuthResponse) => {
   if (!session.token) {
     return session;
@@ -50,6 +52,7 @@ export const authService = {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
   },
   refresh: async () => {
     const refreshToken = localStorage.getItem('refresh_token');
@@ -99,7 +102,11 @@ export const authService = {
     const response = await api.put<UserPreferencesResponse>('/auth/preferences', request);
     const stored = authService.getStoredUser();
     if (stored) {
-      localStorage.setItem('auth_user', JSON.stringify({ ...stored, mfaEnabled: response.data.mfaEnabled }));
+      localStorage.setItem('auth_user', JSON.stringify({
+        ...stored,
+        mfaEnabled: response.data.mfaEnabled,
+        sessionTimeoutMinutes: response.data.sessionTimeoutMinutes,
+      }));
     }
     return response.data;
   },
@@ -116,5 +123,5 @@ export const authService = {
   },
   isAuthenticated: () => Boolean(localStorage.getItem('auth_token')),
   token: () => localStorage.getItem('auth_token'),
-  apiBaseUrl: () => import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8080/api`,
+  apiBaseUrl: () => import.meta.env.VITE_API_BASE_URL || '/api',
 };
