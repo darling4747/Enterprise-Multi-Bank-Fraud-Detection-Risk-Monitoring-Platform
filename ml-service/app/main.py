@@ -252,6 +252,14 @@ def predict(request: PredictionRequest) -> PredictionResponse:
             payload.get("type"),
             payload.get("amount"),
         )
+        add_runtime_log(
+            "RUNNING_PREDICTION",
+            transactionId=payload.get("transactionId"),
+            reference=payload.get("reference"),
+            transactionType=payload.get("type"),
+            amount=payload.get("amount"),
+            modelVersion=predictor.model_version,
+        )
         logger.info("RUNNING_PREDICTION reference=%s", payload.get("reference"))
         response = predictor.predict(payload)
         add_runtime_log(
@@ -273,6 +281,13 @@ def predict(request: PredictionRequest) -> PredictionResponse:
             payload.get("transactionId"),
             payload.get("reference"),
             response.mlRiskScore,
+        )
+        add_runtime_log(
+            "PREDICTION_SENT_TO_BACKEND",
+            transactionId=payload.get("transactionId"),
+            reference=payload.get("reference"),
+            fraudProbability=response.fraudProbability,
+            mlRiskScore=response.mlRiskScore,
         )
         return response
     except RuntimeError as exc:
