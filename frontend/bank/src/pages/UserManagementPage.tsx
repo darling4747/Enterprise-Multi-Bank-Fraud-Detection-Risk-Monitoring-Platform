@@ -11,6 +11,14 @@ import { canIssueBankAdmins, canIssueEmployees, canManageUsers } from '../utils/
 
 const bankAdminRoles: EnterpriseRoleType[] = ['BANK_ADMIN'];
 const employeeRoles: EnterpriseRoleType[] = ['BRANCH_MANAGER', 'FRAUD_ANALYST', 'RISK_OFFICER', 'AUDITOR'];
+const branchSeatRoles: EnterpriseRoleType[] = ['BRANCH_MANAGER', 'FRAUD_ANALYST'];
+
+const roleLabel = (role: EnterpriseRoleType) => role.replaceAll('_', ' ');
+
+const apiErrorMessage = (error: unknown, fallback: string) => {
+  const response = (error as { response?: { data?: { message?: string } } }).response;
+  return response?.data?.message || fallback;
+};
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -36,6 +44,22 @@ export default function UserManagementPage() {
   const canManage = canManageUsers();
   const activeBanks = useMemo(() => banks.filter((bank) => bank.status === 'ACTIVE'), [banks]);
   const activeBranches = useMemo(() => branches.filter((branch) => branch.status === 'ACTIVE'), [branches]);
+  const occupiesRoleSeat = (user: UserResponse) => user.enabled && user.status !== 'INACTIVE';
+  const bankHasActiveAdmin = (bankId: number, excludingUserId?: number) =>
+    users.some((user) =>
+      occupiesRoleSeat(user)
+      && user.id !== excludingUserId
+      && user.bankId === bankId
+      && user.roles.includes('BANK_ADMIN')
+    );
+  const branchHasActiveRole = (branchId: number, role: EnterpriseRoleType, excludingUserId?: number) =>
+    users.some((user) =>
+      occupiesRoleSeat(user)
+      && user.id !== excludingUserId
+      && user.branchId === branchId
+      && user.roles.includes(role)
+    );
+  const requiresBranchSeat = (role: EnterpriseRoleType) => branchSeatRoles.includes(role);
   const assignableRoles = useMemo(() => {
     if (canCreateBankAdmins && canCreateEmployees) {
       return [...bankAdminRoles, ...employeeRoles];
@@ -100,6 +124,26 @@ export default function UserManagementPage() {
       setError('Your role cannot issue this type of credential.');
       return;
     }
+    if (selectedRole === 'BANK_ADMIN') {
+      if (!form.bankId) {
+        setError('Select a bank for the Bank Admin login.');
+        return;
+      }
+      if (bankHasActiveAdmin(Number(form.bankId))) {
+        setError('This bank already has an active Bank Admin login.');
+        return;
+      }
+    }
+    if (requiresBranchSeat(selectedRole)) {
+      if (!form.branchId) {
+        setError(`Select a branch for the ${roleLabel(selectedRole)} login.`);
+        return;
+      }
+      if (branchHasActiveRole(Number(form.branchId), selectedRole)) {
+        setError(`This branch already has an active ${roleLabel(selectedRole)} login.`);
+        return;
+      }
+    }
     setSaving(true);
     setError('');
     setMessage('');
@@ -123,8 +167,8 @@ export default function UserManagementPage() {
       setMessage(`Temporary password for ${response.user.username} is now visible in that user's Password column until they change it.`);
       setForm({ username: '', email: '', fullName: '', bankId: '', branchId: '', employeeId: '', role: selectedRole });
       await loadUsers();
-    } catch {
-      setError('Unable to create user. Check role, bank, and branch permissions.');
+    } catch (error) {
+      setError(apiErrorMessage(error, 'Unable to create user. Check role, bank, and branch permissions.'));
     } finally {
       setSaving(false);
     }
@@ -132,14 +176,24 @@ export default function UserManagementPage() {
 
   const activeCount = useMemo(() => users.filter((user) => user.status === 'ACTIVE').length, [users]);
 
+  const roleUnavailableForUser = (user: UserResponse, role: EnterpriseRoleType) => {
+    if (role === 'BANK_ADMIN') {
+      return !user.bankId || bankHasActiveAdmin(user.bankId, user.id);
+    }
+    if (requiresBranchSeat(role)) {
+      return !user.branchId || branchHasActiveRole(user.branchId, role, user.id);
+    }
+    return false;
+  };
+
   const roleOptionsFor = (user: UserResponse) => {
+    let options: EnterpriseRoleType[] = [];
     if (canCreateEmployees && user.roles.every((role) => employeeRoles.includes(role))) {
-      return employeeRoles;
+      options = employeeRoles;
+    } else if (canCreateBankAdmins && user.roles.includes('BANK_ADMIN')) {
+      options = bankAdminRoles;
     }
-    if (canCreateBankAdmins && user.roles.includes('BANK_ADMIN')) {
-      return bankAdminRoles;
-    }
-    return [];
+    return options.filter((role) => !roleUnavailableForUser(user, role));
   };
 
   const selectedRoleFor = (user: UserResponse) => {
@@ -152,14 +206,28 @@ export default function UserManagementPage() {
     if (!nextRole) {
       return;
     }
+    if (nextRole === 'BANK_ADMIN' && user.bankId && bankHasActiveAdmin(user.bankId, user.id)) {
+      setError('This bank already has an active Bank Admin login.');
+      return;
+    }
+    if (requiresBranchSeat(nextRole)) {
+      if (!user.branchId) {
+        setError(`Assign this user to a branch before changing the role to ${roleLabel(nextRole)}.`);
+        return;
+      }
+      if (branchHasActiveRole(user.branchId, nextRole, user.id)) {
+        setError(`This branch already has an active ${roleLabel(nextRole)} login.`);
+        return;
+      }
+    }
     setError('');
     setMessage('');
     try {
       await userService.updateRoles(user.id, [nextRole]);
       setMessage(`Role updated for ${user.username}.`);
       await loadUsers();
-    } catch {
-      setError('Unable to update role for this user.');
+    } catch (error) {
+      setError(apiErrorMessage(error, 'Unable to update role for this user.'));
     }
   };
 
@@ -171,8 +239,8 @@ export default function UserManagementPage() {
       const response = await userService.resetPassword(id);
       setMessage(`New temporary password for ${response.user.username} is visible in that user's Password column.`);
       await loadUsers();
-    } catch {
-      setError('Unable to reset password for this user.');
+    } catch (error) {
+      setError(apiErrorMessage(error, 'Unable to reset password for this user.'));
     }
   };
 
@@ -195,8 +263,8 @@ export default function UserManagementPage() {
     try {
       await userService.unlockUser(id);
       await loadUsers();
-    } catch {
-      setError('Unable to unlock this user.');
+    } catch (error) {
+      setError(apiErrorMessage(error, 'Unable to unlock this user.'));
     }
   };
 
@@ -205,8 +273,8 @@ export default function UserManagementPage() {
     try {
       await userService.setEnabled(user.id, enabled);
       await loadUsers();
-    } catch {
-      setError(enabled ? 'Unable to reactivate this user.' : 'Unable to deactivate this user.');
+    } catch (error) {
+      setError(apiErrorMessage(error, enabled ? 'Unable to reactivate this user.' : 'Unable to deactivate this user.'));
     }
   };
 
@@ -237,18 +305,29 @@ export default function UserManagementPage() {
               <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required />
               <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Full name" value={form.fullName} onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))} required />
               <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRole} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as EnterpriseRoleType }))}>
-                {assignableRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+                {assignableRoles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
               </select>
               {selectedRole === 'BANK_ADMIN' && (
                 <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={form.bankId} onChange={(event) => setForm((current) => ({ ...current, bankId: event.target.value }))} required>
                   <option value="">Select bank</option>
-                  {activeBanks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name} ({bank.code})</option>)}
+                  {activeBanks.map((bank) => (
+                    <option key={bank.id} value={bank.id} disabled={bankHasActiveAdmin(bank.id)}>
+                      {bank.name} ({bank.code}){bankHasActiveAdmin(bank.id) ? ' - Bank Admin already assigned' : ''}
+                    </option>
+                  ))}
                 </select>
               )}
               {selectedRole !== 'BANK_ADMIN' && (
-                <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={form.branchId} onChange={(event) => setForm((current) => ({ ...current, branchId: event.target.value }))}>
-                  <option value="">No branch</option>
-                  {activeBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name} ({branch.bankCode})</option>)}
+                <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={form.branchId} onChange={(event) => setForm((current) => ({ ...current, branchId: event.target.value }))} required={requiresBranchSeat(selectedRole)}>
+                  <option value="">{requiresBranchSeat(selectedRole) ? 'Select branch' : 'No branch'}</option>
+                  {activeBranches.map((branch) => {
+                    const occupied = requiresBranchSeat(selectedRole) && branchHasActiveRole(branch.id, selectedRole);
+                    return (
+                      <option key={branch.id} value={branch.id} disabled={occupied}>
+                        {branch.name} ({branch.bankCode}){occupied ? ` - ${roleLabel(selectedRole)} already assigned` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
               <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Employee ID" value={form.employeeId} onChange={(event) => setForm((current) => ({ ...current, employeeId: event.target.value }))} />

@@ -138,6 +138,9 @@ public class UserManagementService {
         if (!allowedEmployeeRoles().containsAll(requestedRoles)) {
             throw new BusinessException("Bank Admin can only create employee roles");
         }
+        if (requiresBranchSeat(requestedRoles) && request.branchId() == null) {
+            throw new BusinessException("Branch is required for Branch Manager and Fraud Analyst accounts");
+        }
         UserCreateRequest normalized = new UserCreateRequest(
                 request.username(),
                 request.email(),
@@ -187,6 +190,7 @@ public class UserManagementService {
             user.setVisibleTemporaryPassword(rawPassword);
         }
         user.setRoles(resolveRoles(request.roles()));
+        enforceUniqueRoleSeats(user, null);
         return user;
     }
 
@@ -207,6 +211,7 @@ public class UserManagementService {
             throw new BusinessException("Bank Admin can only assign employee roles");
         }
         user.setRoles(resolveRoles(request.roles()));
+        enforceUniqueRoleSeats(user, user.getId());
         user = userRepository.save(user);
         auditService.log(AuditEventType.ROLE_CHANGED, actor, user, bankId(user), "User roles changed", AuditStatus.SUCCESS);
         return toResponse(user);
@@ -227,6 +232,9 @@ public class UserManagementService {
         }
         user.setEnabled(enabled);
         user.setStatus(enabled ? UserStatus.ACTIVE : UserStatus.INACTIVE);
+        if (enabled) {
+            enforceUniqueRoleSeats(user, user.getId());
+        }
         user = userRepository.save(user);
         if (!enabled) {
             auditService.log(AuditEventType.USER_DEACTIVATED, actor, user, bankId(user), "User deactivated", AuditStatus.SUCCESS);
@@ -255,6 +263,7 @@ public class UserManagementService {
         target.setAccountLockedUntil(null);
         target.setEnabled(true);
         target.setStatus(UserStatus.ACTIVE);
+        enforceUniqueRoleSeats(target, target.getId());
         target = userRepository.save(target);
         passwordPolicyService.rememberPasswordHash(target, previousPasswordHash);
         auditService.log(AuditEventType.PASSWORD_RESET_BY_ADMIN, actor, target, bankId(target), "Credential issuer reset temporary password", AuditStatus.SUCCESS);
@@ -273,6 +282,7 @@ public class UserManagementService {
         target.setAccountLockedUntil(null);
         target.setStatus(UserStatus.ACTIVE);
         target.setEnabled(true);
+        enforceUniqueRoleSeats(target, target.getId());
         target = userRepository.save(target);
         auditService.log(AuditEventType.ACCOUNT_UNLOCKED, actor, target, bankId(target), "User account unlocked", AuditStatus.SUCCESS);
         return toResponse(target);
@@ -298,6 +308,41 @@ public class UserManagementService {
         return roles.stream()
                 .map(roleType -> roleRepository.findByName(roleType).orElseGet(() -> roleRepository.save(new Role(roleType))))
                 .collect(Collectors.toSet());
+    }
+
+    private void enforceUniqueRoleSeats(User user, Long excludedUserId) {
+        Set<RoleType> roles = roleTypes(user);
+        if (roles.contains(RoleType.BANK_ADMIN)) {
+            if (user.getBank() == null) {
+                throw new BusinessException("Bank is required for a Bank Admin account");
+            }
+            if (userRepository.existsActiveRoleInBank(user.getBank().getId(), RoleType.BANK_ADMIN, UserStatus.INACTIVE, excludedUserId)) {
+                throw new BusinessException("This bank already has an active Bank Admin login");
+            }
+        }
+        if (roles.contains(RoleType.BRANCH_MANAGER)) {
+            enforceUniqueBranchSeat(user, RoleType.BRANCH_MANAGER, excludedUserId, "This branch already has an active Branch Manager login");
+        }
+        if (roles.contains(RoleType.FRAUD_ANALYST)) {
+            enforceUniqueBranchSeat(user, RoleType.FRAUD_ANALYST, excludedUserId, "This branch already has an active Fraud Analyst login");
+        }
+    }
+
+    private void enforceUniqueBranchSeat(User user, RoleType role, Long excludedUserId, String message) {
+        if (user.getBranch() == null) {
+            throw new BusinessException("Branch is required for Branch Manager and Fraud Analyst accounts");
+        }
+        if (userRepository.existsActiveRoleInBranch(user.getBranch().getId(), role, UserStatus.INACTIVE, excludedUserId)) {
+            throw new BusinessException(message);
+        }
+    }
+
+    private boolean requiresBranchSeat(Set<RoleType> roles) {
+        return roles.contains(RoleType.BRANCH_MANAGER) || roles.contains(RoleType.FRAUD_ANALYST);
+    }
+
+    private Set<RoleType> roleTypes(User user) {
+        return user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
     }
 
     private EnumSet<RoleType> allowedEmployeeRoles() {
