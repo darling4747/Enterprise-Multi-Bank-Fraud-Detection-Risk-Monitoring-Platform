@@ -57,7 +57,7 @@ public class DailySummaryReportService {
         this.reportZone = ZoneId.of(reportTimeZone);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public int sendDailySummaryToEnabledSuperAdmins() {
         LocalDate reportDate = LocalDate.now(reportZone);
         Instant start = reportDate.atStartOfDay(reportZone).toInstant();

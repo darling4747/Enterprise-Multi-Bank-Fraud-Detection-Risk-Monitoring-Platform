@@ -5,8 +5,10 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { authService } from '../../services/authService';
 
+const DEV_USERNAME = import.meta.env.DEV ? 'superadmin' : '';
+
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(DEV_USERNAME);
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -14,14 +16,20 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/dashboard';
+  const locationState = location.state as { from?: { pathname?: string }; reason?: string } | null;
+  const from = locationState?.from?.pathname || '/dashboard';
+  const notice = locationState?.reason === 'session-timeout' ? 'Your session timed out. Sign in again to continue.' : '';
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const response = await authService.login({ username, password, mfaCode: mfaRequired ? mfaCode : undefined });
+      const response = await authService.login({
+        username: username.trim(),
+        password: password.trim(),
+        mfaCode: mfaRequired ? mfaCode.trim() : undefined,
+      });
       if (response.mfaRequired) {
         setMfaRequired(true);
         setMfaCode('');
@@ -50,6 +58,7 @@ export default function Login() {
             </div>
           </div>
 
+          {notice && !error && <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">{notice}</div>}
           {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
           <label className="block">

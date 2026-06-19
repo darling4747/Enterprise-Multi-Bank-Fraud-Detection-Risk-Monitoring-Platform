@@ -2,6 +2,7 @@ package com.bank.frauddetection.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -31,6 +32,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, authException) ->
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")
+                ))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/refresh", "/actuator/health", "/actuator/info").permitAll()
@@ -49,6 +53,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/audit-logs/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN", "BANK_ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.GET, "/api/ml/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN", "BANK_ADMIN", "RISK_OFFICER", "AUDITOR")
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN", "BANK_ADMIN", "BRANCH_MANAGER", "FRAUD_ANALYST", "RISK_OFFICER", "AUDITOR")
+                        .requestMatchers(HttpMethod.GET, "/api/reports/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN", "BANK_ADMIN", "RISK_OFFICER", "AUDITOR")
+                        .requestMatchers(HttpMethod.POST, "/api/reports/daily-summary/send-now").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/reports/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/transactions/ingest").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN", "BANK_ADMIN", "BRANCH_MANAGER")
                         .requestMatchers(HttpMethod.DELETE, "/api/transactions/**").hasAnyRole("PLATFORM_ADMIN", "SUPER_ADMIN")

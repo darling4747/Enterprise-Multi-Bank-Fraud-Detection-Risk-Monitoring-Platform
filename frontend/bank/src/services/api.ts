@@ -24,7 +24,8 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
-    if (token && config.headers) {
+    const isLoginRequest = config.url?.includes('/auth/login');
+    if (token && config.headers && !isLoginRequest) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     if (config.headers) {
@@ -40,7 +41,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
+    const isAuthRequest = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh');
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
         originalRequest._retry = true;
@@ -66,7 +68,7 @@ api.interceptors.response.use(
         }
       }
     }
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+    if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('auth_user');

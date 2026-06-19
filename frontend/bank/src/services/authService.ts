@@ -42,6 +42,10 @@ const mergeWithStoredSession = (session: AuthResponse) => {
 
 export const authService = {
   login: async (credentials: LoginRequest) => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
     const response = await api.post<AuthResponse>('/auth/login', credentials);
     if (response.data.mfaRequired) {
       return response.data;

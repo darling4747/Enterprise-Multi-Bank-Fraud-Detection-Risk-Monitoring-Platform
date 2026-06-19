@@ -22,6 +22,7 @@
 logs/
 **/logs/
 **/*.log
+**/*.err
 
 # Large local/raw datasets
 ml-service/training/Synthetic Financial Datasets.csv
